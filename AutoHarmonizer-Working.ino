@@ -126,7 +126,7 @@ void loop() {
   if (encNow != encPrev) {
     uint8_t idx = (encPrev << 2) | encNow;
     encPrev = encNow;
-    encAcc += ENC_TAB[idx];                 // accumulate edges
+    encAcc -= ENC_TAB[idx];                 // accumulate edges
     while (encAcc >= 4) {                   // 4 edges per detent
       encAcc -= 4;
       if (semitones < 12) { semitones++; applyPitch(); }
@@ -165,26 +165,31 @@ void loop() {
     }
     drawCentered(topLine, 0, 1);
 
-    // MIDDLE: "+N" or "-N" centered, large; truly center vertically
+    // MIDDLE: "+N" or "-N" centered, large
     char shiftLine[8];
     snprintf(shiftLine, sizeof(shiftLine), "%+d", semitones);
-    // measure to center vertically
-    int16_t x1,y1; uint16_t w,h;
+
+    int16_t x1, y1; uint16_t w, h;
     display.setTextSize(3);
     display.getTextBounds(shiftLine, 0, 0, &x1, &y1, &w, &h);
-    int midY = (64 - (int)h) / 2;
+
+    // Center vertically, then raise a tad (e.g. 3–4 pixels)
+    int midY = (64 - (int)h) / 2 - 3;
+    if (midY < 0) midY = 0;  // safety clamp
     drawCentered(shiftLine, midY, 3);
 
-    // BOTTOM: output note name (input note + shift), centered
+    // BOTTOM: output note name (input note + shift), centered and kept on-screen
     char bottomLine[16] = "--";
     if (lastMidi >= 0) {
       int outMidi = lastMidi + semitones;
-      if (outMidi < 0) outMidi = 0;
-      if (outMidi > 127) outMidi = 127;
+      outMidi = constrain(outMidi, 0, 127);
       midiToName(outMidi, bottomLine, sizeof(bottomLine));
     }
-    // place a bit above bottom edge so it's visible under big number
-    drawCentered(bottomLine, 64 - 12, 2);  // size 2; y ≈ bottom
+    display.setTextSize(2);
+    int16_t bx1, by1; uint16_t bw, bh;
+    display.getTextBounds(bottomLine, 0, 0, &bx1, &by1, &bw, &bh);
+    int by = 64 - (int)bh - 1;        // 1px above the bottom edge
+    drawCentered(bottomLine, by, 2);
 
     display.display();
   }
